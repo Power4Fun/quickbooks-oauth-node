@@ -20,6 +20,20 @@ const qbAuthController = {
       console.error("Callback Error:", error.response?.data || error.message);
       res.status(500).send("Error generating tokens");
     }
+  },
+
+  async getStoredTokens(req, res) {
+    try {
+      const tokens = qbTokenService.getTokens();
+
+      return res.status(200).json({
+        message: "Stored tokens retrieved successfully",
+        tokens
+      });
+    } catch (error) {
+      console.error("Get Stored Tokens Error:", error.message);
+      return res.status(500).send("Error retrieving stored tokens");
+    }
   }
 };
 
