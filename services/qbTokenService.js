@@ -1,0 +1,134 @@
+import axios from "axios";
+import fs from "fs";
+import path from "path";
+import qs from "qs";
+
+const TOKEN_STORAGE_PATH = path.resolve(process.cwd(), "data", "qb_tokens.json");
+
+const defaultTokens = {
+  access_token: null,
+  refresh_token: null,
+  realmId: null
+};
+
+const ensureTokenStorage = () => {
+  const tokenDir = path.dirname(TOKEN_STORAGE_PATH);
+
+  if (!fs.existsSync(tokenDir)) {
+    fs.mkdirSync(tokenDir, { recursive: true });
+  }
+
+  if (!fs.existsSync(TOKEN_STORAGE_PATH)) {
+    fs.writeFileSync(TOKEN_STORAGE_PATH, JSON.stringify(defaultTokens, null, 2));
+  }
+};
+
+let storedTokens = (() => {
+  try {
+    ensureTokenStorage();
+    const raw = fs.readFileSync(TOKEN_STORAGE_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+
+    return {
+      ...defaultTokens,
+      ...parsed
+    };
+  } catch (error) {
+    console.warn("Could not load persisted QB tokens:", error.message);
+    return { ...defaultTokens };
+  }
+})();
+
+const qbTokenService = {
+  loadTokens() {
+    try {
+      ensureTokenStorage();
+      const raw = fs.readFileSync(TOKEN_STORAGE_PATH, "utf8");
+      const parsed = JSON.parse(raw);
+      storedTokens = { ...defaultTokens, ...parsed };
+      return storedTokens;
+    } catch (error) {
+      console.warn("Unable to read stored QB tokens:", error.message);
+      storedTokens = { ...defaultTokens };
+      return storedTokens;
+    }
+  },
+
+  saveTokens(nextTokens) {
+    ensureTokenStorage();
+    storedTokens = {
+      ...defaultTokens,
+      ...nextTokens
+    };
+
+    fs.writeFileSync(TOKEN_STORAGE_PATH, JSON.stringify(storedTokens, null, 2));
+    return storedTokens;
+  },
+
+  async exchangeCodeForTokens(code, realmId) {
+    const url = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
+
+    const authHeader = Buffer.from(
+      `${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`
+    ).toString("base64");
+
+    const payload = qs.stringify({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: process.env.REDIRECT_URI
+    });
+
+    const response = await axios.post(url, payload, {
+      headers: {
+        Authorization: `Basic ${authHeader}`,
+        "Content-Type": "application/x-www-form-urlencoded"
+      }
+    });
+
+    const nextTokens = {
+      access_token: response.data.access_token,
+      refresh_token: response.data.refresh_token,
+      realmId
+    };
+
+    return this.saveTokens(nextTokens);
+  },
+
+  async refreshAccessToken() {
+    if (!storedTokens.refresh_token) {
+      throw new Error("No refresh token available. Re-authorize the app.");
+    }
+
+    const url = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
+
+    const authHeader = Buffer.from(
+      `${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`
+    ).toString("base64");
+
+    const payload = qs.stringify({
+      grant_type: "refresh_token",
+      refresh_token: storedTokens.refresh_token
+    });
+
+    const response = await axios.post(url, payload, {
+      headers: {
+        Authorization: `Basic ${authHeader}`,
+        "Content-Type": "application/x-www-form-urlencoded"
+      }
+    });
+
+    const refreshedTokens = {
+      ...storedTokens,
+      access_token: response.data.access_token,
+      refresh_token: response.data.refresh_token || storedTokens.refresh_token
+    };
+
+    return this.saveTokens(refreshedTokens);
+  },
+
+  getTokens() {
+    return this.loadTokens();
+  }
+};
+
+export default qbTokenService;
