@@ -1,16 +1,24 @@
+import qbApiService from "../services/qbApiService.js";
+
 const qbCustomerController = {
   async list(req, res) {
-    return res.status(200).json({
-      message: "Customers endpoint ready",
-      customers: []
-    });
+    try {
+      const data = await qbApiService.getCustomers();
+      res.json(data);
+    } catch (err) {
+      console.error("Customer list error:", err);
+      res.status(500).json({ error: err.message });
+    }
   },
 
   async create(req, res) {
-    return res.status(201).json({
-      message: "Customer created",
-      payload: req.body || {}
-    });
+    try {
+      const data = await qbApiService.createCustomer(req.body);
+      res.json(data);
+    } catch (err) {
+      console.error("Customer create error:", err);
+      res.status(500).json({ error: err.message });
+    }
   }
 };
 

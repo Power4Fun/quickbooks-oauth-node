@@ -1,16 +1,24 @@
+import qbApiService from "../services/qbApiService.js";
+
 const qbInvoiceController = {
   async list(req, res) {
-    return res.status(200).json({
-      message: "Invoices endpoint ready",
-      invoices: []
-    });
+    try {
+      const data = await qbApiService.getInvoices();
+      res.json(data);
+    } catch (err) {
+      console.error("Invoice list error:", err);
+      res.status(500).json({ error: err.message });
+    }
   },
 
   async create(req, res) {
-    return res.status(201).json({
-      message: "Invoice created",
-      payload: req.body || {}
-    });
+    try {
+      const data = await qbApiService.createInvoice(req.body);
+      res.json(data);
+    } catch (err) {
+      console.error("Invoice create error:", err);
+      res.status(500).json({ error: err.message });
+    }
   }
 };
 
