@@ -78,12 +78,21 @@ const qbTokenService = {
       redirect_uri: process.env.REDIRECT_URI
     });
 
+    console.log("QB token exchange request", {
+      redirect_uri: process.env.REDIRECT_URI,
+      grant_type: "authorization_code",
+      hasCode: Boolean(code),
+      realmId
+    });
+
     const response = await axios.post(url, payload, {
       headers: {
         Authorization: `Basic ${authHeader}`,
         "Content-Type": "application/x-www-form-urlencoded"
       }
     });
+
+    console.log("QB token exchange response", response.data);
 
     const nextTokens = {
       access_token: response.data.access_token,
@@ -110,12 +119,20 @@ const qbTokenService = {
       refresh_token: storedTokens.refresh_token
     });
 
+    console.log("QB refresh request", {
+      redirect_uri: process.env.REDIRECT_URI,
+      grant_type: "refresh_token",
+      hasRefreshToken: Boolean(storedTokens.refresh_token)
+    });
+
     const response = await axios.post(url, payload, {
       headers: {
         Authorization: `Basic ${authHeader}`,
         "Content-Type": "application/x-www-form-urlencoded"
       }
     });
+
+    console.log("QB refresh response", response.data);
 
     const refreshedTokens = {
       ...storedTokens,
