@@ -91,3 +91,39 @@ test("refreshes expired tokens and retries the request once", async () => {
     axiosGetMock.mock.restore();
   }
 });
+
+test("clears stored tokens when QuickBooks rejects an invalid refresh token", async () => {
+  qbTokenService.saveTokens({
+    access_token: "stale-token",
+    refresh_token: "expired-refresh-token",
+    realmId: "1234567890"
+  });
+
+  const axiosPostMock = mock.method(axios, "post", async () => {
+    const error = new Error("Bad Refresh Token");
+    error.response = {
+      status: 400,
+      data: {
+        error: "invalid_grant",
+        error_description: "Incorrect or invalid refresh token"
+      }
+    };
+    throw error;
+  });
+
+  try {
+    await assert.rejects(
+      () => qbTokenService.refreshAccessToken(),
+      /re-authorize the app/i
+    );
+
+    const tokens = qbTokenService.getTokens();
+    assert.deepEqual(tokens, {
+      access_token: null,
+      refresh_token: null,
+      realmId: null
+    });
+  } finally {
+    axiosPostMock.mock.restore();
+  }
+});

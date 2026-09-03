@@ -132,20 +132,48 @@ const qbTokenService = {
       hasRefreshToken: Boolean(currentTokens.refresh_token)
     });
 
-    const response = await axios.post(url, payload, {
-      headers: {
-        Authorization: `Basic ${authHeader}`,
-        "Content-Type": "application/x-www-form-urlencoded"
+    try {
+      const response = await axios.post(url, payload, {
+        headers: {
+          Authorization: `Basic ${authHeader}`,
+          "Content-Type": "application/x-www-form-urlencoded"
+        }
+      });
+
+      const refreshedTokens = {
+        ...currentTokens,
+        access_token: response.data.access_token,
+        refresh_token: response.data.refresh_token || currentTokens.refresh_token
+      };
+
+      return this.saveTokens(refreshedTokens);
+    } catch (error) {
+      const errorData = error.response?.data || {};
+      const isInvalidRefreshToken =
+        errorData.error === "invalid_grant" ||
+        /incorrect or invalid refresh token/i.test(errorData.error_description || "") ||
+        /invalid refresh token/i.test(error.message || "");
+
+      if (isInvalidRefreshToken) {
+        this.saveTokens({
+          access_token: null,
+          refresh_token: null,
+          realmId: null
+        });
+
+        throw new Error("QuickBooks refresh token is invalid. Re-authorize the app.");
       }
+
+      throw error;
+    }
+  },
+
+  clearTokens() {
+    return this.saveTokens({
+      access_token: null,
+      refresh_token: null,
+      realmId: null
     });
-
-    const refreshedTokens = {
-      ...currentTokens,
-      access_token: response.data.access_token,
-      refresh_token: response.data.refresh_token || currentTokens.refresh_token
-    };
-
-    return this.saveTokens(refreshedTokens);
   },
 
   getTokens() {
