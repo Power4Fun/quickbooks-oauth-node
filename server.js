@@ -22,6 +22,9 @@ app.use("/api/vendors", vendorRoutes);
 app.get("/oauth/login", qbAuthController.login);
 app.get("/oauth/callback", qbAuthController.handleCallback);
 app.get("/oauth/tokens", qbAuthController.getStoredTokens);
+app.get("/api/oauth/login", qbAuthController.login);
+app.get("/api/oauth/callback", qbAuthController.handleCallback);
+app.get("/api/oauth/tokens", qbAuthController.getStoredTokens);
 
 app.get("/", (req, res) => {
   res.json({
