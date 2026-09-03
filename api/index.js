@@ -1,5 +1,6 @@
 import express from "express";
 import serverless from "serverless-http";
+import qbAuthController from "../controllers/qbAuthController.js";
 
 import paymentsRoutes from "../routes/payments.js";
 import invoiceRoutes from "../routes/invoices.js";
@@ -16,8 +17,12 @@ app.use("/api/items", itemRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/customers", customerRoutes);
 
+app.get("/oauth/callback", qbAuthController.handleCallback);
+app.get("/oauth/tokens", qbAuthController.getStoredTokens);
+
 app.get("/", (req, res) => {
   res.json({ status: "OK", message: "QuickBooks OAuth API running" });
 });
 
 export const handler = serverless(app);
+export default app;
