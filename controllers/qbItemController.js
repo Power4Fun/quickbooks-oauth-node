@@ -9,6 +9,16 @@ const qbItemController = {
       console.error("Item list error:", err);
       res.status(500).json({ error: err.message });
     }
+  },
+
+  async create(req, res) {
+    try {
+      const data = await qbApiService.createItem(req.body);
+      res.json(data);
+    } catch (err) {
+      console.error("Item create error:", err);
+      res.status(500).json({ error: err.message });
+    }
   }
 };
 

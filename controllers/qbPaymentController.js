@@ -9,6 +9,16 @@ const qbPaymentController = {
       console.error("Payment list error:", err);
       res.status(500).json({ error: err.message });
     }
+  },
+
+  async create(req, res) {
+    try {
+      const data = await qbApiService.createPayment(req.body);
+      res.json(data);
+    } catch (err) {
+      console.error("Payment create error:", err);
+      res.status(500).json({ error: err.message });
+    }
   }
 };
 
