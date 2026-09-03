@@ -41,6 +41,10 @@ let storedTokens = (() => {
 
 const qbTokenService = {
   loadTokens() {
+    if (process.env.VERCEL) {
+      return storedTokens;
+    }
+
     try {
       ensureTokenStorage();
       const raw = fs.readFileSync(TOKEN_STORAGE_PATH, "utf8");
@@ -55,13 +59,16 @@ const qbTokenService = {
   },
 
   saveTokens(nextTokens) {
-    ensureTokenStorage();
     storedTokens = {
       ...defaultTokens,
       ...nextTokens
     };
 
-    fs.writeFileSync(TOKEN_STORAGE_PATH, JSON.stringify(storedTokens, null, 2));
+    if (!process.env.VERCEL) {
+      ensureTokenStorage();
+      fs.writeFileSync(TOKEN_STORAGE_PATH, JSON.stringify(storedTokens, null, 2));
+    }
+
     return storedTokens;
   },
 
@@ -91,8 +98,6 @@ const qbTokenService = {
         "Content-Type": "application/x-www-form-urlencoded"
       }
     });
-
-    console.log("QB token exchange response", response.data);
 
     const nextTokens = {
       access_token: response.data.access_token,
@@ -131,8 +136,6 @@ const qbTokenService = {
         "Content-Type": "application/x-www-form-urlencoded"
       }
     });
-
-    console.log("QB refresh response", response.data);
 
     const refreshedTokens = {
       ...storedTokens,
