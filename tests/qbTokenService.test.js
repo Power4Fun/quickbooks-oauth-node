@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
+import axios from "axios";
+import { mock } from "node:test";
 import qbTokenService from "../services/qbTokenService.js";
+import qbApiService from "../services/qbApiService.js";
 
 const tokenDir = path.resolve("data");
 const tokenFile = path.join(tokenDir, "qb_tokens.json");
@@ -35,4 +38,56 @@ test("persists tokens to disk and loads them back", () => {
     refresh_token: "test-refresh-token",
     realmId: "1234567890"
   });
+});
+
+test("refreshes expired tokens and retries the request once", async () => {
+  const getTokensMock = mock.method(qbTokenService, "getTokens", () => ({
+    access_token: "expired-token",
+    refresh_token: "refresh-token",
+    realmId: "1234567890"
+  }));
+
+  const refreshMock = mock.method(qbTokenService, "refreshAccessToken", async () => {
+    qbTokenService.saveTokens({
+      access_token: "fresh-token",
+      refresh_token: "new-refresh-token",
+      realmId: "1234567890"
+    });
+
+    return qbTokenService.getTokens();
+  });
+
+  let requestCount = 0;
+  const axiosGetMock = mock.method(axios, "get", async () => {
+    requestCount += 1;
+
+    if (requestCount === 1) {
+      const error = new Error("Unauthorized");
+      error.response = {
+        status: 401,
+        data: { error: "invalid_grant" }
+      };
+      throw error;
+    }
+
+    return {
+      data: {
+        QueryResponse: {
+          Customer: [{ Id: "1", DisplayName: "Acme" }]
+        }
+      }
+    };
+  });
+
+  try {
+    const result = await qbApiService.getCustomers();
+
+    assert.deepEqual(result.QueryResponse.Customer, [{ Id: "1", DisplayName: "Acme" }]);
+    assert.equal(requestCount, 2);
+    assert.equal(refreshMock.mock.callCount(), 1);
+  } finally {
+    getTokensMock.mock.restore();
+    refreshMock.mock.restore();
+    axiosGetMock.mock.restore();
+  }
 });

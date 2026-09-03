@@ -4,6 +4,36 @@ import qbTokenService from "./qbTokenService.js";
 const getCompanyUrl = (realmId, resource) =>
   `https://quickbooks.api.intuit.com/v3/company/${realmId}/${resource}`;
 
+async function retryAfterRefresh(requestFn, label, emptyResponse) {
+  try {
+    return await requestFn();
+  } catch (error) {
+    if (!error.response || error.response.status !== 401) {
+      throw error;
+    }
+
+    try {
+      await qbTokenService.refreshAccessToken();
+      return await requestFn();
+    } catch (refreshError) {
+      if (emptyResponse) {
+        return {
+          ...emptyResponse,
+          status: "unauthorized",
+          message: `QuickBooks rejected the stored token while ${label}. Re-run OAuth.`,
+          details: refreshError.response?.data || refreshError.message
+        };
+      }
+
+      return {
+        status: "unauthorized",
+        message: `QuickBooks rejected the stored token while ${label}. Re-run OAuth.`,
+        details: refreshError.response?.data || refreshError.message
+      };
+    }
+  }
+}
+
 async function queryResource(resource, label) {
   const { access_token, realmId } = qbTokenService.getTokens();
 
@@ -16,18 +46,25 @@ async function queryResource(resource, label) {
 
   const query = encodeURIComponent(`select * from ${resource}`);
 
-  try {
+  const requestFn = async () => {
+    const currentTokens = qbTokenService.getTokens();
     const response = await axios.get(
-      getCompanyUrl(realmId, `query?query=${query}`),
+      getCompanyUrl(currentTokens.realmId, `query?query=${query}`),
       {
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          Authorization: `Bearer ${currentTokens.access_token}`,
           Accept: "application/json"
         }
       }
     );
 
     return response.data;
+  };
+
+  try {
+    return await retryAfterRefresh(requestFn, label, {
+      QueryResponse: { [resource]: [] }
+    });
   } catch (error) {
     return {
       QueryResponse: { [resource]: [] },
@@ -45,16 +82,21 @@ async function createResource(resource, payload, label) {
     throw new Error("No QuickBooks token or realm is stored yet. Complete OAuth first.");
   }
 
-  try {
-    const response = await axios.post(getCompanyUrl(realmId, resource), payload, {
+  const requestFn = async () => {
+    const currentTokens = qbTokenService.getTokens();
+    const response = await axios.post(getCompanyUrl(currentTokens.realmId, resource), payload, {
       headers: {
-        Authorization: `Bearer ${access_token}`,
+        Authorization: `Bearer ${currentTokens.access_token}`,
         Accept: "application/json",
         "Content-Type": "application/json"
       }
     });
 
     return response.data;
+  };
+
+  try {
+    return await retryAfterRefresh(requestFn, label);
   } catch (error) {
     return {
       status: "unauthorized",
@@ -78,15 +120,27 @@ async function getCustomers() {
 
   const url = `https://quickbooks.api.intuit.com/v3/company/${realmId}/query?query=select * from Customer`;
 
-  try {
-    const response = await axios.get(url, {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-        Accept: "application/json"
+  const requestFn = async () => {
+    const currentTokens = qbTokenService.getTokens();
+    const response = await axios.get(
+      `https://quickbooks.api.intuit.com/v3/company/${currentTokens.realmId}/query?query=select * from Customer`,
+      {
+        headers: {
+          Authorization: `Bearer ${currentTokens.access_token}`,
+          Accept: "application/json"
+        }
       }
-    });
+    );
 
     return response.data;
+  };
+
+  try {
+    return await retryAfterRefresh(requestFn, "loading customers", {
+      QueryResponse: {
+        Customer: []
+      }
+    });
   } catch (error) {
     return {
       QueryResponse: {
@@ -108,16 +162,25 @@ async function createCustomer(payload) {
 
   const url = `https://quickbooks.api.intuit.com/v3/company/${realmId}/customer`;
 
-  try {
-    const response = await axios.post(url, payload, {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-        Accept: "application/json",
-        "Content-Type": "application/json"
+  const requestFn = async () => {
+    const currentTokens = qbTokenService.getTokens();
+    const response = await axios.post(
+      `https://quickbooks.api.intuit.com/v3/company/${currentTokens.realmId}/customer`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${currentTokens.access_token}`,
+          Accept: "application/json",
+          "Content-Type": "application/json"
+        }
       }
-    });
+    );
 
     return response.data;
+  };
+
+  try {
+    return await retryAfterRefresh(requestFn, "creating customers");
   } catch (error) {
     return {
       status: "unauthorized",

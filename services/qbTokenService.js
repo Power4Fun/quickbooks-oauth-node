@@ -109,7 +109,9 @@ const qbTokenService = {
   },
 
   async refreshAccessToken() {
-    if (!storedTokens.refresh_token) {
+    const currentTokens = this.getTokens();
+
+    if (!currentTokens.refresh_token) {
       throw new Error("No refresh token available. Re-authorize the app.");
     }
 
@@ -121,13 +123,13 @@ const qbTokenService = {
 
     const payload = qs.stringify({
       grant_type: "refresh_token",
-      refresh_token: storedTokens.refresh_token
+      refresh_token: currentTokens.refresh_token
     });
 
     console.log("QB refresh request", {
       redirect_uri: process.env.REDIRECT_URI,
       grant_type: "refresh_token",
-      hasRefreshToken: Boolean(storedTokens.refresh_token)
+      hasRefreshToken: Boolean(currentTokens.refresh_token)
     });
 
     const response = await axios.post(url, payload, {
@@ -138,9 +140,9 @@ const qbTokenService = {
     });
 
     const refreshedTokens = {
-      ...storedTokens,
+      ...currentTokens,
       access_token: response.data.access_token,
-      refresh_token: response.data.refresh_token || storedTokens.refresh_token
+      refresh_token: response.data.refresh_token || currentTokens.refresh_token
     };
 
     return this.saveTokens(refreshedTokens);
