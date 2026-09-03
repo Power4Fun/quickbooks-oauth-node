@@ -13,6 +13,7 @@ app.use(express.json());
 
 app.use("/api/customers", customerRoutes);
 app.use("/api/invoices", invoiceRoutes);
+app.get("/oauth/login", qbAuthController.login);
 app.get("/oauth/callback", qbAuthController.handleCallback);
 app.get("/oauth/tokens", qbAuthController.getStoredTokens);
 

@@ -1,6 +1,33 @@
 import qbTokenService from "../services/qbTokenService.js";
 
+const buildAuthorizationUrl = () => {
+  const authUrl = new URL("https://appcenter.intuit.com/connect/oauth2");
+
+  authUrl.searchParams.set("client_id", process.env.CLIENT_ID);
+  authUrl.searchParams.set("redirect_uri", process.env.REDIRECT_URI);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set(
+    "scope",
+    "com.intuit.quickbooks.accounting openid profile email phone address"
+  );
+  authUrl.searchParams.set("state", "quickbooks-oauth-node");
+
+  return authUrl.toString();
+};
+
 const qbAuthController = {
+  buildAuthorizationUrl,
+
+  async login(req, res) {
+    if (!process.env.CLIENT_ID || !process.env.REDIRECT_URI) {
+      return res.status(500).json({
+        error: "QuickBooks OAuth is not configured. Set CLIENT_ID and REDIRECT_URI in the environment."
+      });
+    }
+
+    return res.redirect(buildAuthorizationUrl());
+  },
+
   async handleCallback(req, res) {
     try {
       const { code, realmId } = req.query;

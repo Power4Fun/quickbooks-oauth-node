@@ -17,6 +17,7 @@ app.use("/api/items", itemRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/customers", customerRoutes);
 
+app.get("/oauth/login", qbAuthController.login);
 app.get("/oauth/callback", qbAuthController.handleCallback);
 app.get("/oauth/tokens", qbAuthController.getStoredTokens);
 

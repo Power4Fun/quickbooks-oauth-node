@@ -28,3 +28,15 @@ test("returns stored QuickBooks tokens", async () => {
   assert.ok(res.jsonBody && res.jsonBody.tokens);
   assert.ok("access_token" in res.jsonBody.tokens);
 });
+
+test("builds the QuickBooks OAuth login URL with the configured redirect URI", () => {
+  process.env.CLIENT_ID = "test-client-id";
+  process.env.REDIRECT_URI = "https://example.com/oauth/callback";
+
+  const url = qbAuthController.buildAuthorizationUrl();
+
+  assert.ok(url.startsWith("https://appcenter.intuit.com/connect/oauth2"));
+  assert.match(url, /client_id=test-client-id/);
+  assert.match(url, /redirect_uri=https%3A%2F%2Fexample.com%2Foauth%2Fcallback/);
+  assert.match(url, /response_type=code/);
+});
